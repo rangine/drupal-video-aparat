@@ -1,0 +1,204 @@
+<?php
+/**
+ * @file
+ * Add a handler for aparat.com videos to Video Embed Field
+ * with this module you can add videos from aparat.com
+ */
+
+/**
+ * Implements hook_video_embed_handler_info().
+ */
+function video_embed_aparat_video_embed_handler_info() {
+  $handlers = array();
+  $handlers['aparat'] = array(
+    'title' => 'Aparat Video',
+    'function' => 'video_embed_aparat_handle',
+    'thumbnail_function' => 'video_embed_aparat_handle_thumbnail',
+    'thumbnail_default' => drupal_get_path('module', 'video_embed_field') . '/img/aparat.jpg',
+    'data_function' => 'video_embed_field_handle_aparat_data',
+    'form' => 'video_embed_aparat_form',
+    'domains' => array(
+      'aparat.com',
+    ),
+    'defaults' => array(
+      'width' => 640,
+      'height' => 360,
+      'color' => '00adef',
+      'portrait' => 1,
+      'title' => 1,
+      'byline' => 1,
+      'autoplay' => 0,
+      'loop' => 0,
+      'froogaloop' => 0,
+    ),
+  );
+  return $handlers;
+}
+
+/**
+ * Provide a form to configure out video settings.
+ *
+ * @param array $defaults
+ *   default/current values for your provider, the currently saved settings
+ *   with empty values filled with the defaults provided in info hook
+ *
+ * @return array
+ *   form as defined by forms api
+ */
+function video_embed_aparat_form($defaults) {
+  $form = array();
+  $form['height'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Player Height'),
+    '#description' => t('The height of the player.'),
+    '#default_value' => $defaults['height'],
+    '#element_validate' => array('_video_embed_aparat_element_validate'),
+  );
+  $form['width'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Player Width'),
+    '#description' => t('The width of the player.'),
+    '#default_value' => $defaults['width'],
+    '#element_validate' => array('_video_embed_aparat_element_validate'),
+  );
+  return $form;
+}
+
+/**
+ * Helper function to get the Aparat video's ID.
+ *
+ * @param string $url
+ *   A Aparat video URL to get the ID of.
+ *
+ * @return integer|false
+ *   The video ID, or FALSE if unable to get the video ID.
+ */
+function video_embed_aparat_get_id($url) {
+	$urltoarray = explode("/" , $url);
+	$id = end($urltoarray);
+	return $id;
+}
+
+/**
+ * Handler for Aparat videos.
+ *
+ * @param string $url
+ *   The video URL.
+ * @param array $settings
+ *   The settings array.
+ *
+ * @return string
+ *   The video iframe.
+ */
+function video_embed_aparat_handle($url, $settings) {
+  // Get ID of video from URL.
+  $id = video_embed_aparat_get_id($url);
+
+$fullscreen = $settings['allowfullscreen'] ? 'webkitAllowFullScreen mozallowfullscreen allowfullscreen' : '';
+  if (!$id) {
+	return array('#markup' => '<iframe src="'.$url.'" allowFullScreen="'.check_plain($settings['allowfullscreen']).'" webkitallowfullscreen="'.check_plain($settings['allowfullscreen']).'" mozallowfullscreen="'.check_plain($settings['allowfullscreen']).'" width="' . check_plain($settings['width']) . '" height="' . check_plain($settings['height']) . '" frameborder="0" '.$fullscreen.'></iframe>',
+	  );
+  }
+ return array('#markup' => '<iframe src="http://www.aparat.com/video/video/embed/videohash/'.$id.'/vt/frame" allowFullScreen="'.check_plain($settings['allowfullscreen']).'" webkitallowfullscreen="'.check_plain($settings['allowfullscreen']).'" mozallowfullscreen="'.check_plain($settings['allowfullscreen']).'" id="' . $settings['player_id'] . '" width="' . check_plain($settings['width']) . '" height="' . check_plain($settings['height']) . '" frameborder="0" '.$fullscreen.'></iframe>',
+  );
+}
+
+  
+/**
+ * Gets the thumbnail url for Aparat videos.
+ *
+ * @param string $url
+ *   The video URL.
+ *
+ * @return array
+ *   The video thumbnail information.
+ */
+function video_embed_aparat_handle_thumbnail($url) {
+  // Get ID of video from URL.
+  $id = video_embed_aparat_get_id($url);
+  $info = array(
+    'id' => $id,
+  );
+  
+  $response = drupal_http_request('http://www.aparat.com/etc/api/video/videohash/' . $id);
+  if (!isset($response->error)) {
+    $response = json_decode($response->data);
+
+    $image_url = $response -> video -> big_poster;
+    $info['url'] = $image_url;
+  }
+  return $info;
+}
+
+
+/**
+ * Get video data for a Aparat video URL.
+ *
+ * @param string $url
+ *   A Aparat video URL to get data for.
+ *
+ * @return array|false
+ *   An array of video data, or FALSE if unable to fetch data.
+ */
+function video_embed_aparat_handle_data($url) {
+  // Get ID of video from URL.
+  $id = video_embed_aparat_get_id($url);
+  if ($id) {
+    $response = drupal_http_request('http://www.aparat.com/etc/api/video/videohash/' . $id);
+    if (!isset($response->error)) {
+	 $response = json_decode($response->data);
+      return (array) current($response);
+    }
+  }
+  return FALSE;
+}
+
+/**
+ * Function for validating width and height in setting form.
+ */
+function video_embed_aparat_form_validate(){
+	
+}
+/**
+ * Function for validating width and height in setting form.
+ */
+function _video_embed_aparat_element_validate($element, &$form_state) {
+  $check = _video_embed_aparat_check_input($element['#value']);
+  if (!empty($element['#value']) && !$check) {
+    form_error($element, t('The "!name" option must contain a valid value. You may either leave the text field empty or enter a string like "640px" or "640"', array('!name' => t($element['#title']))));
+  }
+}
+
+/**
+ * Helper function to check for a valid input in height and width textfields.
+ *
+ * @param string $input
+ *   the string that contains input from setting form
+ *
+ * @return bool
+ *   if input is valid returns true else false
+ */
+function _video_embed_aparat_check_input($input) {
+  $input = check_plain($input);
+  if ($input == '') {
+    return FALSE;
+  }
+  $size = drupal_strlen($input);
+  $cur_char = '';
+  for ($i = 0; $i < $size; $i++) {
+    $cur_char = drupal_substr($input, $i, 1);
+    if ($cur_char >= '0' && $cur_char <= '9') {
+      continue;
+    }
+    break;
+  }
+  if ($i == $size) {
+    return TRUE;
+  }
+  elseif ($i > 0 && $i == $size - 2) {
+    if (drupal_substr($input, $i, 2) == 'px') {
+      return TRUE;
+    }
+  }
+  return FALSE;
+}

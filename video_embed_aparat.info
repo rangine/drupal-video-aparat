@@ -1,0 +1,7 @@
+name = "Video Embed Aparat"
+description = "Provides Aparat handler for Video Embed Fields."
+package = Media
+configure = admin/config/media/vef_video_styles
+dependencies[] = "video_embed_field"
+project = "video_embed_field"
+core = 7.x
